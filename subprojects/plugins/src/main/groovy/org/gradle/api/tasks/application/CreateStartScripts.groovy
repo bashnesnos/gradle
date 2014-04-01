@@ -60,6 +60,9 @@ public class CreateStartScripts extends ConventionTask {
     @InputFiles
     FileCollection classpath
 
+    String applicationBinDir
+    String applicationLibDir
+
     /**
      * Returns the name of the application's OPTS environment variable.
      */
@@ -95,16 +98,23 @@ public class CreateStartScripts extends ConventionTask {
         return new File(getOutputDir(), "${getApplicationName()}.bat")
     }
 
+    String getRelPath(String aDir) {
+        return aDir != null && !aDir.equals(".") ? "$aDir/" : ""
+    }
+
     @TaskAction
     void generate() {
+        String theBinDir =  getApplicationBinDir()
+        String theLibDir =  getApplicationLibDir()
+
         def generator = new StartScriptGenerator()
         generator.applicationName = getApplicationName()
         generator.mainClassName = getMainClassName()
         generator.defaultJvmOpts = getDefaultJvmOpts()
         generator.optsEnvironmentVar = getOptsEnvironmentVar()
         generator.exitEnvironmentVar = getExitEnvironmentVar()
-        generator.classpath = getClasspath().collect { "lib/${it.name}" }
-        generator.scriptRelPath = "bin/${getUnixScript().name}"
+        generator.classpath = getClasspath().collect { it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}" }
+        generator.scriptRelPath = "${getRelPath(theBinDir)}${getUnixScript().name}"
         generator.generateUnixScript(getUnixScript())
         generator.generateWindowsScript(getWindowsScript())
     }

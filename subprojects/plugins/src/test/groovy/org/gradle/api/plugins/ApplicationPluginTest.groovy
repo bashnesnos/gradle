@@ -18,6 +18,7 @@ package org.gradle.api.plugins
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskDependencyMatchers
 import org.gradle.api.tasks.application.CreateStartScripts
+import org.gradle.api.tasks.application.ConfigureDistribution
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.bundling.Zip
@@ -31,7 +32,7 @@ class ApplicationPluginTest extends Specification {
     private final Project project = TestUtil.createRootProject();
     private final ApplicationPlugin plugin = new ApplicationPlugin();
 
-    def "applies JavaPlugin and adds convention object with default values"() {
+    public void "applies JavaPlugin and adds convention object with default values"() {
         when:
         plugin.apply(project)
 
@@ -42,9 +43,12 @@ class ApplicationPluginTest extends Specification {
         project.mainClassName == null
         project.applicationDefaultJvmArgs == []
         project.applicationDistribution instanceof CopySpec
+        project.applicationBinDir == "bin"
+        project.applicationLibDir == "lib"
+        project.overrideDefaults == false
     }
 
-    def "adds run task to project"() {
+    public void "adds run task to project"() {
         when:
         plugin.apply(project)
 
@@ -77,7 +81,7 @@ class ApplicationPluginTest extends Specification {
         task.destinationDir == project.file("build/install/${project.applicationName}")
     }
 
-    def "adds distZip task to project"() {
+    public void "adds distZip task to project"() {
         when:
         plugin.apply(project)
 
@@ -87,7 +91,7 @@ class ApplicationPluginTest extends Specification {
         task.archiveName == "${project.applicationName}.zip"
     }
 
-    def "adds distTar task to project"() {
+    public void "adds distTar task to project"() {
         when:
         plugin.apply(project)
 
@@ -96,6 +100,45 @@ class ApplicationPluginTest extends Specification {
         task instanceof Tar
         task.archiveName == "${project.applicationName}.tar"
     }
+
+    public void "adds configureDist task to project"() {
+        when:
+        plugin.apply(project)
+
+        then:
+        def task = project.tasks[ApplicationPlugin.TASK_CONFIGURE_NAME]
+        task instanceof ConfigureDistribution
+        task.applicationDistribution instanceof CopySpec 
+        task.applicationBinDir == "bin"
+        task.applicationLibDir == "lib"
+        task.overrideDefaults == false
+        task.pluginConvention instanceof ApplicationPluginConvention
+    }
+
+//    public void "install/zip/tar is configurable"() {
+//        when:
+//        plugin.apply(project)
+//        def task = project.tasks[ApplicationPlugin.TASK_CONFIGURE_NAME]
+//        project.applicationBinDir = "."
+//        project.overrideDefaults = true
+//        project.applicationDistribution = project.copySpec { }
+//        task.doConfigure()
+//
+//        then:
+//        project.applicationBinDir == "."
+//        def startScriptsTask = project.tasks[ApplicationPlugin.TASK_START_SCRIPTS_NAME]
+//        startScriptsTask.applicationBinDir == "."
+//
+//        def installTest = project.tasks[ApplicationPlugin.TASK_INSTALL_NAME]
+//        installTest.getDependsOn().isEmpty()
+//
+//        def distZipTask = project.tasks[ApplicationPlugin.TASK_DIST_ZIP_NAME]
+//        distZipTask.getDependsOn().isEmpty()
+//
+//        def distTarTask = project.tasks[ApplicationPlugin.TASK_DIST_TAR_NAME]
+//        distTarTask.getDependsOn().isEmpty()
+//
+//    }
 
     public void "applicationName is configurable"() {
         when:

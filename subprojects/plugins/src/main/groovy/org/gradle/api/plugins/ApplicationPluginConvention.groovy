@@ -54,6 +54,10 @@ class ApplicationPluginConvention {
      * into the "{@code lib}" directory.
      */
     CopySpec applicationDistribution
+	
+	String applicationBinDir
+    String applicationLibDir
+	Boolean overrideDefaults
 
     final Project project
 
