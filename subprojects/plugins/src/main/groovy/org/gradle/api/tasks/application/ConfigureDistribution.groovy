@@ -91,7 +91,7 @@ public class ConfigureDistribution extends ConventionTask {
     @Override
     public Task configure(Closure closure) {
     	//super.configure(closure) //recurses to death
-    	setApplicationDistribution(project.copySpec { })
+    	setApplicationDistribution(project.copySpec { }) //replacing default copySpec
     	def result = ConfigureUtil.configure(closure, this, false);
     	defaultConfigure()
     	result

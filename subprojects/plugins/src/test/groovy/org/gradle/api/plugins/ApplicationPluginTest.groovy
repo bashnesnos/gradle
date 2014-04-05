@@ -115,31 +115,6 @@ class ApplicationPluginTest extends Specification {
         task.pluginConvention instanceof ApplicationPluginConvention
     }
 
-//    public void "install/zip/tar is configurable"() {
-//        when:
-//        plugin.apply(project)
-//        def task = project.tasks[ApplicationPlugin.TASK_CONFIGURE_NAME]
-//        project.applicationBinDir = "."
-//        project.overrideDefaults = true
-//        project.applicationDistribution = project.copySpec { }
-//        task.doConfigure()
-//
-//        then:
-//        project.applicationBinDir == "."
-//        def startScriptsTask = project.tasks[ApplicationPlugin.TASK_START_SCRIPTS_NAME]
-//        startScriptsTask.applicationBinDir == "."
-//
-//        def installTest = project.tasks[ApplicationPlugin.TASK_INSTALL_NAME]
-//        installTest.getDependsOn().isEmpty()
-//
-//        def distZipTask = project.tasks[ApplicationPlugin.TASK_DIST_ZIP_NAME]
-//        distZipTask.getDependsOn().isEmpty()
-//
-//        def distTarTask = project.tasks[ApplicationPlugin.TASK_DIST_TAR_NAME]
-//        distTarTask.getDependsOn().isEmpty()
-//
-//    }
-
     public void "applicationName is configurable"() {
         when:
         plugin.apply(project)

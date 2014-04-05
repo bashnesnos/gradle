@@ -55,8 +55,19 @@ class ApplicationPluginConvention {
      */
     CopySpec applicationDistribution
 	
+    /**
+    * Relative(to the distribution dir) path to the distribution's "{@code bin}" directory. A place for the generated start scripts
+    */
 	String applicationBinDir
+
+    /**
+    * Relative(to the distribution dir) path to the distribution's "{@code lib}" folder. A place for the generated jars and dependencies
+    */
     String applicationLibDir
+
+    /**
+    * Flag which tells the ConfigureDistribution task to override/keep the default applicationDistribution CopySpec configuration
+    */
 	Boolean overrideDefaults
 
     final Project project
