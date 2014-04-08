@@ -25,6 +25,7 @@ import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Tar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.GradleException
+import org.gradle.api.internal.plugins.*
 
 /**
  * <p>A {@link org.gradle.api.Task} for configuring application plugin's distribution spec.</p>
@@ -91,7 +92,7 @@ public class ConfigureDistribution extends ConventionTask {
     @Override
     public Task configure(Closure closure) {
     	//super.configure(closure) //recurses to death
-    	setApplicationDistribution(project.copySpec { }) //replacing default copySpec
+    	setApplicationDistribution(new DefaultApplicationDistributionSpec(project.copySpec {})) //replacing default copySpec
     	def result = ConfigureUtil.configure(closure, this, false);
     	defaultConfigure()
     	result

@@ -17,6 +17,7 @@ package org.gradle.api.plugins
 
 import org.gradle.api.Project
 import org.gradle.api.file.CopySpec
+import org.gradle.api.internal.plugins.*
 
 /**
  * <p>A {@link Convention} used for the ApplicationPlugin.</p>
@@ -53,7 +54,7 @@ class ApplicationPluginConvention {
      * copy the application start scripts into the "{@code bin}" directory, and copy the built jar and its dependencies
      * into the "{@code lib}" directory.
      */
-    CopySpec applicationDistribution
+    ApplicationDistributionSpec applicationDistribution
 	
     /**
     * Relative(to the distribution dir) path to the distribution's "{@code bin}" directory. A place for the generated start scripts
@@ -74,7 +75,7 @@ class ApplicationPluginConvention {
 
     ApplicationPluginConvention(Project project) {
         this.project = project
-        applicationDistribution = project.copySpec {}
+        applicationDistribution = new DefaultApplicationDistributionSpec(project.copySpec {})
     }
 
 }
