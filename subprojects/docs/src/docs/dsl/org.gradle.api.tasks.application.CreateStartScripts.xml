@@ -9,7 +9,6 @@
             <tr><td>mainClassName</td></tr>
             <tr><td>classpath</td></tr>
             <tr><td>defaultJvmOpts</td></tr>
-            <tr><td>outputDir</td></tr>
             <tr><td>optsEnvironmentVar</td></tr>
         </table>
     </section>

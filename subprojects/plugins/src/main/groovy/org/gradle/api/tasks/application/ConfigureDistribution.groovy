@@ -26,6 +26,8 @@ import org.gradle.api.tasks.bundling.Tar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.GradleException
 import org.gradle.api.internal.plugins.*
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.api.Action
 
 /**
  * <p>A {@link org.gradle.api.Task} for configuring application plugin's distribution spec.</p>
@@ -34,7 +36,7 @@ public class ConfigureDistribution extends ConventionTask {
     /**
      * The distribution CopySpec
      */
-	CopySpec applicationDistribution
+	ApplicationDistributionSpec applicationDistribution
 	String applicationBinDir
 	String applicationLibDir
 	Boolean overrideDefaults
@@ -50,15 +52,14 @@ public class ConfigureDistribution extends ConventionTask {
         pluginConvention.applicationLibDir = theLibDir
 		pluginConvention.overrideDefaults = theOverrideDefaults
 
-		addCreateScriptsTask()
-
 		if (!theOverrideDefaults){
 			def jar = project.tasks[JavaPlugin.JAR_TASK_NAME]
-			def startScripts = project.tasks[ApplicationPlugin.TASK_START_SCRIPTS_NAME]
 			
 			theAppSpec.with {
 				from(project.file("src/dist"))
+            }
 
+            theAppSpec.getClasspathSpec().with {
 				if (theLibDir == null || theLibDir.equals(".")) {
 					from(jar)
 					from(project.configurations.runtime)
@@ -69,19 +70,24 @@ public class ConfigureDistribution extends ConventionTask {
 						from(project.configurations.runtime)
 					}
 				}
-
-				if (theBinDir == null || theBinDir.equals(".")) {
-					from(startScripts) {
-						fileMode = 0755
-					}
-				}
-				else {
-					into(theBinDir) {
-						from(startScripts)
-						fileMode = 0755
-					}
-				}
 			}
+
+            File tempWinDir = new File(project.buildDir, 'tmp/startScriptTemplates/win')
+            tempWinDir.mkdirs()
+
+            new File(tempWinDir, 'windowsStartScript.txt').withWriter {
+                def stream = StartScriptGenerator.getResource('windowsStartScript.txt')
+                it.println stream.text
+            }
+
+            theAppSpec.getLaunchScripts().from(tempWinDir) {
+                fileMode = 0755
+            }
+            theAppSpec.getLaunchScripts().filesMatching('**/win*', getWindowsScriptAction())
+
+            if (theBinDir != null && !theBinDir.equals(".")) {
+                theAppSpec.getLaunchScripts().into(theBinDir)
+            }
 		}
 
 		pluginConvention.applicationDistribution = theAppSpec
@@ -144,16 +150,18 @@ public class ConfigureDistribution extends ConventionTask {
     }
 
     // @Todo: refactor this task configuration to extend a copy task and use replace tokens
+    // @Todo: refactor this task configuration to extend a copy task and use replace tokens
     private void addCreateScriptsTask() {
         def startScripts = recreateTask(ApplicationPlugin.TASK_START_SCRIPTS_NAME, CreateStartScripts)
+
         startScripts.description = "Creates OS specific scripts to run the project as a JVM application."
         startScripts.classpath = project.tasks[JavaPlugin.JAR_TASK_NAME].outputs.files + project.configurations.runtime
         startScripts.conventionMapping.mainClassName = { pluginConvention.mainClassName }
         startScripts.conventionMapping.applicationName = { pluginConvention.applicationName }
-        startScripts.conventionMapping.outputDir = { new File(project.buildDir, 'scripts') }
         startScripts.conventionMapping.defaultJvmOpts = { pluginConvention.applicationDefaultJvmArgs }
-		startScripts.conventionMapping.applicationBinDir = { pluginConvention.applicationBinDir }
+        startScripts.conventionMapping.applicationBinDir = { pluginConvention.applicationBinDir }
         startScripts.conventionMapping.applicationLibDir = { pluginConvention.applicationLibDir }
+        //startScripts.with(pluginConvention.applicationDistribution.getLaunchScripts())
     }
 
     private Task recreateTask(String name, Class<? extends Task> type) {
@@ -168,9 +176,78 @@ public class ConfigureDistribution extends ConventionTask {
     }
 
     private configureDistDependentTasks() {
+        addCreateScriptsTask()
         addInstallTask()
         addDistZipTask()
         addDistTarTask()
+    }
+
+    File getUnixScript() {
+        return new File(pluginConvention.applicationName)
+    }
+
+    File getWindowsScript() {
+        return new File("${pluginConvention.applicationName}.bat")
+    }
+
+    String getRelPath(String aDir) {
+        return aDir != null && !aDir.equals(".") ? "$aDir/" : ""
+    }
+
+    Map<String,?> generateWindowsScriptParameters() {
+        String theBinDir =  getApplicationBinDir()
+        String theLibDir =  getApplicationLibDir()
+        def theAppSpec = getApplicationDistribution()
+        def classpath = []
+        theAppSpec.getClasspathSpec().eachFile {
+            classpath.add(it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}")
+        }
+        //getClasspath().collect { it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}" }
+        def windowsClassPath = classpath.collect { "%APP_HOME%\\${it.replace('/', '\\')}" }.join(";")
+        def appHome = getAppHomeRelativePath("${getRelPath(theBinDir)}${pluginConvention.applicationName}").replace('/', '\\')
+        //argument quoting:
+        // - " must be encoded as \"
+        // - % must be encoded as %%
+        // - pathological case: \" must be encoded as \\\", but other than that, \ MUST NOT be quoted
+        // - other characters (including ') will not be quoted
+        // - use a state machine rather than regexps
+        def quotedDefaultJvmOpts = pluginConvention.applicationDefaultJvmArgs.collect {
+            def wasOnBackslash = false
+            it = it.collect { ch ->
+                def repl = ch
+                if (ch == '%') {
+                    repl = '%%'
+                } else if (ch == '"') {
+                    repl = (wasOnBackslash ? '\\' : '') + '\\"'
+                }
+                wasOnBackslash = (ch == '\\')
+                repl
+            }
+            (/"${it.join()}"/)
+        }
+        def defaultJvmOptsString = quotedDefaultJvmOpts.join(' ')
+        return [applicationName: pluginConvention.applicationName,
+                optsEnvironmentVar: pluginConvention.optsEnvironmentVar,
+                exitEnvironmentVar: pluginConvention.exitEnvironmentVar,
+                mainClassName: pluginConvention.mainClassName,
+                defaultJvmOpts: defaultJvmOptsString,
+                appNameSystemProperty: pluginConvention.appNameSystemProperty,
+                appHomeRelativePath: appHome,
+                classpath: windowsClassPath]
+    }
+
+    private String getAppHomeRelativePath(String scriptRelPath) {
+        def depth = scriptRelPath.count("/")
+        if (depth == 0) {
+            return ""
+        }
+        return (1..depth).collect {".."}.join("/")
+    }
+
+    Action getWindowsScriptAction() {
+        return { fileCopyDetails ->
+            fileCopyDetails.filter(ReplaceTokens, tokens: generateWindowsScriptParameters())
+        } as Action
     }
 
 }

@@ -70,7 +70,7 @@ class ApplicationPluginIntegrationTest extends WellBehavedPluginTest {
         and:
         file('build/distributions/AppPluginTestProject.zip').usingNativeTools().unzipTo(file("unzip"))
         file("unzip/AppPluginTestProject/bin/AppPluginTestProject.bat").assertIsFile()
-        file("unzip/AppPluginTestProject/bin/AppPluginTestProject").assertIsFile()
+        //file("unzip/AppPluginTestProject/bin/AppPluginTestProject").assertIsFile()
         file("unzip/AppPluginTestProject/lib/AppPluginTestProject.jar").assertIsFile()
         file("unzip/AppPluginTestProject/config/config.xml").assertIsFile()
         file("unzip/AppPluginTestProject/read.me").assertIsFile()
@@ -105,10 +105,10 @@ class ApplicationPluginIntegrationTest extends WellBehavedPluginTest {
             assertIsFile()
             text =~ /(?m)CLASSPATH=.*?%APP_HOME%\\config/
         }
-        file("unzip/AppPluginTestProject/AppPluginTestProject").with {
-            assertIsFile()
-            text =~ /(?m)CLASSPATH=.*?APP_HOME\/config/
-        }
+//        file("unzip/AppPluginTestProject/AppPluginTestProject").with {
+//            assertIsFile()
+//            text =~ /(?m)CLASSPATH=.*?APP_HOME\/config/
+//        }
         file("unzip/AppPluginTestProject/lib/AppPluginTestProject.jar").assertIsFile()
         file("unzip/AppPluginTestProject/config/config.xml").assertIsFile()
         file("unzip/AppPluginTestProject/read.me").assertIsFile()

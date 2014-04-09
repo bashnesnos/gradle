@@ -16,20 +16,16 @@
 package org.gradle.api.tasks.application
 
 import org.gradle.api.file.FileCollection
-import org.gradle.api.internal.ConventionTask
 import org.gradle.api.internal.plugins.StartScriptGenerator
 import org.gradle.api.tasks.*
 import org.gradle.util.GUtil
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.api.Action
 
 /**
  * <p>A {@link org.gradle.api.Task} for creating OS dependent start scripts.</p>
  */
-public class CreateStartScripts extends ConventionTask {
-
-    /**
-     * The directory to write the scripts into.
-     */
-    File outputDir
+public class CreateStartScripts extends Copy {
 
     /**
      * The application's main class.
@@ -57,7 +53,6 @@ public class CreateStartScripts extends ConventionTask {
     /**
      * The class path for the application.
      */
-    @InputFiles
     FileCollection classpath
 
     String applicationBinDir
@@ -88,12 +83,10 @@ public class CreateStartScripts extends ConventionTask {
         return "${GUtil.toConstant(getApplicationName())}_EXIT_CONSOLE"
     }
 
-    @OutputFile
     File getUnixScript() {
         return new File(getOutputDir(), getApplicationName())
     }
 
-    @OutputFile
     File getWindowsScript() {
         return new File(getOutputDir(), "${getApplicationName()}.bat")
     }
@@ -102,20 +95,64 @@ public class CreateStartScripts extends ConventionTask {
         return aDir != null && !aDir.equals(".") ? "$aDir/" : ""
     }
 
-    @TaskAction
-    void generate() {
-        String theBinDir =  getApplicationBinDir()
-        String theLibDir =  getApplicationLibDir()
+//    @TaskAction
+//    void generate() {
+//        String theBinDir =  getApplicationBinDir()
+//        String theLibDir =  getApplicationLibDir()
+//
+//        def generator = new StartScriptGenerator()
+//        generator.applicationName = getApplicationName()
+//        generator.mainClassName = getMainClassName()
+//        generator.defaultJvmOpts = getDefaultJvmOpts()
+//        generator.optsEnvironmentVar = getOptsEnvironmentVar()
+//        generator.exitEnvironmentVar = getExitEnvironmentVar()
+//        generator.classpath = getClasspath().collect { it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}" }
+//        generator.scriptRelPath = "${getRelPath(theBinDir)}${getUnixScript().name}"
+//        generator.generateUnixScript(getUnixScript())
+//        generator.generateWindowsScript(getWindowsScript())
+//    }
 
-        def generator = new StartScriptGenerator()
-        generator.applicationName = getApplicationName()
-        generator.mainClassName = getMainClassName()
-        generator.defaultJvmOpts = getDefaultJvmOpts()
-        generator.optsEnvironmentVar = getOptsEnvironmentVar()
-        generator.exitEnvironmentVar = getExitEnvironmentVar()
+    Map<String,?> generateWindowsScriptParameters() {
         generator.classpath = getClasspath().collect { it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}" }
         generator.scriptRelPath = "${getRelPath(theBinDir)}${getUnixScript().name}"
-        generator.generateUnixScript(getUnixScript())
-        generator.generateWindowsScript(getWindowsScript())
+
+        def windowsClassPath = classpath.collect { "%APP_HOME%\\${it.replace('/', '\\')}" }.join(";")
+        def appHome = appHomeRelativePath.replace('/', '\\')
+        //argument quoting:
+        // - " must be encoded as \"
+        // - % must be encoded as %%
+        // - pathological case: \" must be encoded as \\\", but other than that, \ MUST NOT be quoted
+        // - other characters (including ') will not be quoted
+        // - use a state machine rather than regexps
+        def quotedDefaultJvmOpts = defaultJvmOpts.collect {
+            def wasOnBackslash = false
+            it = it.collect { ch ->
+                def repl = ch
+                if (ch == '%') {
+                    repl = '%%'
+                } else if (ch == '"') {
+                    repl = (wasOnBackslash ? '\\' : '') + '\\"'
+                }
+                wasOnBackslash = (ch == '\\')
+                repl
+            }
+            (/"${it.join()}"/)
+        }
+        def defaultJvmOptsString = quotedDefaultJvmOpts.join(' ')
+        return [applicationName: applicationName,
+                optsEnvironmentVar: optsEnvironmentVar,
+                exitEnvironmentVar: exitEnvironmentVar,
+                mainClassName: mainClassName,
+                defaultJvmOpts: defaultJvmOptsString,
+                appNameSystemProperty: appNameSystemProperty,
+                appHomeRelativePath: appHome,
+                classpath: windowsClassPath]
     }
+
+    Action getWindowsScriptAction() {
+        return { fileCopyDetails ->
+            fileCopyDetails.filter(ReplaceTokens, tokens: generateWindowsScriptParameters())
+        } as Action
+    }
+
 }
