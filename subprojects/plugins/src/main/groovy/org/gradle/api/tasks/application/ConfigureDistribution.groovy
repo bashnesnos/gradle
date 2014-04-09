@@ -84,6 +84,7 @@ public class ConfigureDistribution extends ConventionTask {
                 fileMode = 0755
             }
             theAppSpec.getLaunchScripts().filesMatching('**/win*', getWindowsScriptAction())
+            theAppSpec.getLaunchScripts().rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
 
             if (theBinDir != null && !theBinDir.equals(".")) {
                 theAppSpec.getLaunchScripts().into(theBinDir)
@@ -227,11 +228,11 @@ public class ConfigureDistribution extends ConventionTask {
         }
         def defaultJvmOptsString = quotedDefaultJvmOpts.join(' ')
         return [applicationName: pluginConvention.applicationName,
-                optsEnvironmentVar: pluginConvention.optsEnvironmentVar,
-                exitEnvironmentVar: pluginConvention.exitEnvironmentVar,
+                optsEnvironmentVar: '',
+                exitEnvironmentVar: '',
                 mainClassName: pluginConvention.mainClassName,
                 defaultJvmOpts: defaultJvmOptsString,
-                appNameSystemProperty: pluginConvention.appNameSystemProperty,
+                appNameSystemProperty: '',
                 appHomeRelativePath: appHome,
                 classpath: windowsClassPath]
     }
@@ -246,7 +247,7 @@ public class ConfigureDistribution extends ConventionTask {
 
     Action getWindowsScriptAction() {
         return { fileCopyDetails ->
-            fileCopyDetails.filter(ReplaceTokens, tokens: generateWindowsScriptParameters())
+            fileCopyDetails.filter(ReplaceTokens, tokens: { generateWindowsScriptParameters() })
         } as Action
     }
 
