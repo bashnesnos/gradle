@@ -74,7 +74,7 @@ class ApplicationPlugin implements Plugin<Project> {
         configureDist.conventionMapping.applicationLibDir = { pluginConvention.applicationLibDir }
 		configureDist.conventionMapping.overrideDefaults = { pluginConvention.overrideDefaults }
         configureDist.pluginConvention pluginConvention
-		configureDist.defaultConfigure()
+		//configureDist.defaultConfigure()
     }
 	
 }

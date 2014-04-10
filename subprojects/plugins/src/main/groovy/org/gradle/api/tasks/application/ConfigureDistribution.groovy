@@ -16,7 +16,6 @@
 package org.gradle.api.tasks.application
 
 import org.gradle.api.internal.ConventionTask
-import org.gradle.api.file.CopySpec
 import org.gradle.api.plugins.*
 import org.gradle.api.tasks.*
 import org.gradle.api.Task
@@ -28,6 +27,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.internal.plugins.*
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.api.Action
+import org.gradle.api.file.*
 
 /**
  * <p>A {@link org.gradle.api.Task} for configuring application plugin's distribution spec.</p>
@@ -82,12 +82,6 @@ public class ConfigureDistribution extends ConventionTask {
 
             theAppSpec.getLaunchScripts().from(tempWinDir) {
                 fileMode = 0755
-            }
-            theAppSpec.getLaunchScripts().filesMatching('**/win*', getWindowsScriptAction())
-            theAppSpec.getLaunchScripts().rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
-
-            if (theBinDir != null && !theBinDir.equals(".")) {
-                theAppSpec.getLaunchScripts().into(theBinDir)
             }
 		}
 
@@ -162,7 +156,23 @@ public class ConfigureDistribution extends ConventionTask {
         startScripts.conventionMapping.defaultJvmOpts = { pluginConvention.applicationDefaultJvmArgs }
         startScripts.conventionMapping.applicationBinDir = { pluginConvention.applicationBinDir }
         startScripts.conventionMapping.applicationLibDir = { pluginConvention.applicationLibDir }
-        //startScripts.with(pluginConvention.applicationDistribution.getLaunchScripts())
+        startScripts.with(pluginConvention.applicationDistribution.getLaunchScripts())
+        startScripts.filesMatching('**/win*', getWindowsScriptAction())
+        startScripts.rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
+        startScripts.into { project.file("${project.buildDir}/launchScripts") }
+
+        String theBinDir =  getApplicationBinDir()
+        pluginConvention.applicationDistribution.with {
+            if (theBinDir != null && !theBinDir.equals(".")) {
+                into(theBinDir) {
+                    from(startScripts)
+                }
+            }
+            else {
+                from(startScripts)
+            }
+        }
+
     }
 
     private Task recreateTask(String name, Class<? extends Task> type) {
@@ -246,9 +256,11 @@ public class ConfigureDistribution extends ConventionTask {
     }
 
     Action getWindowsScriptAction() {
-        return { fileCopyDetails ->
-            fileCopyDetails.filter(ReplaceTokens, tokens: { generateWindowsScriptParameters() })
-        } as Action
+        return new Action<FileCopyDetails>() {
+            public void execute(FileCopyDetails fileCopyDetails) {
+                fileCopyDetails.filter(ReplaceTokens, tokens: generateWindowsScriptParameters())
+            }
+        }
     }
 
 }
