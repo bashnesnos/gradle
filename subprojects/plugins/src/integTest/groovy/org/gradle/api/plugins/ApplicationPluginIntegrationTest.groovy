@@ -98,10 +98,10 @@ class ApplicationPluginIntegrationTest extends WellBehavedPluginTest {
         succeeds('distZip')
         and:
         file('build/distributions/AppPluginTestProject.zip').usingNativeTools().unzipTo(file("unzip"))
-        file("unzip/AppPluginTestProject/AppPluginTestProject.bat").assertIsFile()
-            
-//            text =~ /(?m)CLASSPATH=.*?%APP_HOME%\\config/
-//        }
+        file("unzip/AppPluginTestProject/AppPluginTestProject.bat").with{
+            assertIsFile()
+            text =~ /(?m)CLASSPATH=.*?%APP_HOME%\\config/
+        }
 //        file("unzip/AppPluginTestProject/AppPluginTestProject").with {
 //            assertIsFile()
 //            text =~ /(?m)CLASSPATH=.*?APP_HOME\/config/

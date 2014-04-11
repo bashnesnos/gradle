@@ -83,6 +83,14 @@ public class ConfigureDistribution extends ConventionTask {
             theAppSpec.getLaunchScripts().from(tempWinDir) {
                 fileMode = 0755
             }
+            theAppSpec.getLaunchScripts().filesMatching('**/win*', getWindowsScriptAction())
+            theAppSpec.getLaunchScripts().rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
+
+            if (theBinDir != null && !theBinDir.equals(".")) {
+                theAppSpec.getLaunchScripts().into(theBinDir)
+            }
+
+            //theAppSpec.getLaunchScripts().into { project.file("${project.buildDir}/launchScripts") }
 		}
 
 		pluginConvention.applicationDistribution = theAppSpec
@@ -109,6 +117,15 @@ public class ConfigureDistribution extends ConventionTask {
         installTask.group = ApplicationPlugin.APPLICATION_GROUP
         installTask.with pluginConvention.applicationDistribution
         installTask.into { project.file("${project.buildDir}/install/${pluginConvention.applicationName}") }
+
+        installTask.getRootSpec().walk(
+            { copySpecResolver ->
+                println "Destination path: " + copySpecResolver.getDestPath()
+                println "Files: " + copySpecResolver.getSource().getFiles()
+                println "Copy actions: " + copySpecResolver.getAllCopyActions()
+            } as Action
+        )
+
         installTask.doFirst {
             if (destinationDir.directory) {
                 if (!new File(destinationDir, theLibDir).directory || !new File(destinationDir, theBinDir).directory) {
@@ -146,34 +163,34 @@ public class ConfigureDistribution extends ConventionTask {
 
     // @Todo: refactor this task configuration to extend a copy task and use replace tokens
     // @Todo: refactor this task configuration to extend a copy task and use replace tokens
-    private void addCreateScriptsTask() {
-        def startScripts = recreateTask(ApplicationPlugin.TASK_START_SCRIPTS_NAME, CreateStartScripts)
-
-        startScripts.description = "Creates OS specific scripts to run the project as a JVM application."
-        startScripts.classpath = project.tasks[JavaPlugin.JAR_TASK_NAME].outputs.files + project.configurations.runtime
-        startScripts.conventionMapping.mainClassName = { pluginConvention.mainClassName }
-        startScripts.conventionMapping.applicationName = { pluginConvention.applicationName }
-        startScripts.conventionMapping.defaultJvmOpts = { pluginConvention.applicationDefaultJvmArgs }
-        startScripts.conventionMapping.applicationBinDir = { pluginConvention.applicationBinDir }
-        startScripts.conventionMapping.applicationLibDir = { pluginConvention.applicationLibDir }
-        startScripts.with(pluginConvention.applicationDistribution.getLaunchScripts())
-        startScripts.filesMatching('**/win*', getWindowsScriptAction())
-        startScripts.rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
-        startScripts.into { project.file("${project.buildDir}/launchScripts") }
-
-        String theBinDir =  getApplicationBinDir()
-        pluginConvention.applicationDistribution.with {
-            if (theBinDir != null && !theBinDir.equals(".")) {
-                into(theBinDir) {
-                    from(startScripts)
-                }
-            }
-            else {
-                from(startScripts)
-            }
-        }
-
-    }
+//    private void addCreateScriptsTask() {
+//        def startScripts = recreateTask(ApplicationPlugin.TASK_START_SCRIPTS_NAME, CreateStartScripts)
+//
+//        startScripts.description = "Creates OS specific scripts to run the project as a JVM application."
+//        startScripts.classpath = project.tasks[JavaPlugin.JAR_TASK_NAME].outputs.files + project.configurations.runtime
+//        startScripts.conventionMapping.mainClassName = { pluginConvention.mainClassName }
+//        startScripts.conventionMapping.applicationName = { pluginConvention.applicationName }
+//        startScripts.conventionMapping.defaultJvmOpts = { pluginConvention.applicationDefaultJvmArgs }
+//        startScripts.conventionMapping.applicationBinDir = { pluginConvention.applicationBinDir }
+//        startScripts.conventionMapping.applicationLibDir = { pluginConvention.applicationLibDir }
+//        startScripts.with(pluginConvention.applicationDistribution.getLaunchScripts())
+//        startScripts.filesMatching('**/win*', getWindowsScriptAction())
+//        startScripts.rename('windowsStartScript.txt', "${pluginConvention.applicationName}.bat")
+//        startScripts.into { project.file("${project.buildDir}/launchScripts") }
+//
+//        String theBinDir =  getApplicationBinDir()
+//        pluginConvention.applicationDistribution.with {
+//            if (theBinDir != null && !theBinDir.equals(".")) {
+//                into(theBinDir) {
+//                    from(startScripts)
+//                }
+//            }
+//            else {
+//                from(startScripts)
+//            }
+//        }
+//
+//    }
 
     private Task recreateTask(String name, Class<? extends Task> type) {
         def taskInstance = project.tasks.findByPath(name)
@@ -187,7 +204,7 @@ public class ConfigureDistribution extends ConventionTask {
     }
 
     private configureDistDependentTasks() {
-        addCreateScriptsTask()
+        //addCreateScriptsTask()
         addInstallTask()
         addDistZipTask()
         addDistTarTask()
@@ -209,10 +226,12 @@ public class ConfigureDistribution extends ConventionTask {
         String theBinDir =  getApplicationBinDir()
         String theLibDir =  getApplicationLibDir()
         def theAppSpec = getApplicationDistribution()
-        def classpath = []
-        theAppSpec.getClasspathSpec().eachFile {
-            classpath.add(it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}")
-        }
+        def classpath = new HashSet<String>()
+        theAppSpec.getClasspathSpec().walk( { copySpecResolver ->
+            def destPath = copySpecResolver.getDestPath()
+            classpath.addAll(copySpecResolver.getSource().getFiles().collect {it.name =~ /\.jar/ ? "$destPath/$it.name" : "$destPath" })
+        } as Action )
+        println "Resolved classpath: $classpath"
         //getClasspath().collect { it.name =~ /\.jar/ ? "${getRelPath(theLibDir)}${it.name}" : "${it.name}" }
         def windowsClassPath = classpath.collect { "%APP_HOME%\\${it.replace('/', '\\')}" }.join(";")
         def appHome = getAppHomeRelativePath("${getRelPath(theBinDir)}${pluginConvention.applicationName}").replace('/', '\\')
@@ -258,6 +277,7 @@ public class ConfigureDistribution extends ConventionTask {
     Action getWindowsScriptAction() {
         return new Action<FileCopyDetails>() {
             public void execute(FileCopyDetails fileCopyDetails) {
+                println "Filtering stuff"
                 fileCopyDetails.filter(ReplaceTokens, tokens: generateWindowsScriptParameters())
             }
         }
